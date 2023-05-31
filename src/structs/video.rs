@@ -12,6 +12,7 @@ use crossterm::terminal::{
 };
 use js_sandbox::Script;
 use serde::Deserialize;
+use urldecode::decode;
 
 use super::SimpleText;
 use crate::config::*;
@@ -35,6 +36,39 @@ fn seconds_to_human(seconds: String) -> String {
 		MONTH..YEAR => [&(parsed / MONTH).to_string(), " Months"].concat(),
 		YEAR.. => [&(parsed / YEAR).to_string(), " Years"].concat(),
 	}
+}
+
+/// Deciphers the given signature, calling the `s` function in the given `Script`
+fn decipher_signature(script: &mut Script, signature_cipher: String) -> String {
+	// Iter over params in the string, assuming they're in alphabetical
+	// order (`s`, `sp`, `url`).
+	let mut split = signature_cipher.split('&');
+
+	let url = &split.next_back().unwrap()[4..];
+	let sp = &split.next_back().unwrap()[3..];
+	let s = decode(split.next_back().unwrap()[2..].to_owned());
+
+	[
+		// Url decode two levels
+		&decode(url.replace("%25", "%")),
+		"&",
+		sp,
+		"=",
+		&script
+			.call::<_, String>(
+				"s",
+				&('\0'..unsafe { char::from_u32_unchecked(s.len() as u32) }).collect::<String>(),
+			)
+			.expect("`sig` function shouldn't fail")
+			.bytes()
+			.map(|i| {
+				s.chars()
+					.nth(i.into())
+					.expect("Indices from the `sig` function should be within range")
+			})
+			.collect::<String>(),
+	]
+	.concat()
 }
 
 #[derive(Deserialize)]
@@ -174,15 +208,24 @@ enum StreamingData {
 	},
 }
 
+#[derive(Deserialize)]
+struct VideoDetails {
+	videoId: String,
+	// Ignore `title`, `lengthSeconds`, `channelId`, `isOwnerViewing`, `shortDescription`,
+	// `isCrawlable`, `thumbnail`, `allowRatings`, `viewCount`, `author`, `isPrivate`,
+	// `isUnpluggedCorpus` and `isLiveContent`
+}
+
 /// A youtube video
 #[derive(Deserialize)]
 pub struct VideoResponse {
 	captions: Option<Captions>,
 	microformat: Microformat,
 	streamingData: StreamingData,
+	videoDetails: VideoDetails,
 	// Ignore `adPlacements`, `attestation`, `cards`, `frameworkUpdates`, `playabilityStatus`,
 	// `playbackTracking`, `playerAds`, `playerConfig`, `responseContext`, `storyboards`,
-	// `trackingParams`, `videoDetails`
+	// `trackingParams`
 }
 impl VideoResponse {
 	/// Play this video using the user's config
@@ -376,8 +419,9 @@ Uploaded: {}
 
 							url
 						}
-						AdaptiveFormat::VideoCipher { .. } => todo!("signatureCipher"),
-
+						AdaptiveFormat::VideoCipher {
+							signatureCipher, ..
+						} => decipher_signature(script, signatureCipher),
 						_ => unreachable!("`ideal_video` should always be a video"),
 					},
 					match ideal_audio.expect("Should be at least one audio track") {
@@ -394,7 +438,9 @@ Uploaded: {}
 
 							url
 						}
-						AdaptiveFormat::AudioCipher { .. } => todo!("signatureCipher"),
+						AdaptiveFormat::AudioCipher {
+							signatureCipher, ..
+						} => decipher_signature(script, signatureCipher),
 						_ => {
 							unreachable!("`ideal_audio` should always be audio")
 						}

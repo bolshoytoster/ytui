@@ -601,21 +601,44 @@ fn main() {
 
 								// Find the current n decryption function in the player js and
 								// define it in our context
-								let start = player
+								let n_start = player
 									.find("n(a){var b=a.sp")
 									.expect("Should be an `n` decryption function")
 									- 9;
 
 								// Use a determined function name ('f')
-								player.replace_range(start..start + 1, "f");
+								player.replace_range(n_start..n_start + 1, "f");
+
+								// Find the signature decipher function
+								let sig_start = player
+									.find("a=a.split(\"\"")
+									.expect("Should be a `sig` decryption function")
+									- 14;
+
+								// Use a determined function name ('s')
+								player.replace_range(sig_start..sig_start + 1, "s");
 
 								// Create new script and define `n` function in it
 								let mut script = Script::from_string(
-									&player[start
-										..start
-											+ player[start..]
-												.find(";\ng")
-												.expect("`n` function should end with this")],
+									&[
+										// `n` function
+										&player[n_start
+											..n_start
+												+ player[n_start..]
+													.find("\ng")
+													.expect("`n` function should end with this")],
+										// I don't think this changes. (between 'VF=' and '};g.W')
+										"VF={RV:function(a,b){var \
+										 c=a[0];a[0]=a[b%a.length];a[b%a.length]=c},p4:function(a,\
+										 b){a.splice(0,b)},wa:function(a){a.reverse()}};",
+										// `sig` function
+										&player[sig_start
+											..sig_start
+												+ player[sig_start..]
+													.find(";\n")
+													.expect("`sig` function should end with this")],
+									]
+									.concat(),
 								)
 								.expect("`n` function should be valid");
 

@@ -4,10 +4,9 @@ This is a TUI client for youtube (largely based on my other project, [twitch-tui
 
 I made this because the existing youtube clients didn't really meet my expectations.
 
-This is a work in progress, you'll currently run into `todo!()`s in a lot of places:
+This is a work in progress, you'll currently run into `todo!()`s in a few places:
 - Channels
 - Playlists
-- Videos with [`signatureCipher`](https://github.com/yt-dlp/yt-dlp/issues/5011)
 
 ## Config
 

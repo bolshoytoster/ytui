@@ -16,6 +16,8 @@ serde = { version = "*", features = ["derive"] }
 simd-json = "*"
 # HTTPS
 curl = "*"
+# URL decode
+urldecode = "*"
 # Eval JS (to decrypt `n` challenge to avoid throttling)
 # We can't use boa, since it handles some things slightly differerently to browsers,
 # and calculates n wrong

@@ -838,27 +838,28 @@ fn main() {
 						}
 					}
 
-					page = Page::Search {
-						query,
-						params: None,
-						continuation: None,
-						previous: (
-							Box::new(page),
-							list_state.selected().expect("Something should be selected"),
-						),
-					};
+					// Don't do anything if the user typed nothing
+					if !query.is_empty() {
+						page = Page::Search {
+							query,
+							params: None,
+							continuation: None,
+							previous: (
+								Box::new(page),
+								list_state.selected().expect("Something should be selected"),
+							),
+						};
 
-					// Move cursor to the top
-					list_state.select(Some(0));
+						// Move cursor to the top
+						list_state.select(Some(0));
 
-					(list, info_vec) = page.request(&mut easy);
+						(list, info_vec) = page.request(&mut easy);
 
-					ratatui_list = List::new(list.clone()).highlight_style(Style {
-						add_modifier: Modifier::REVERSED,
-						..Style::default()
-					});
-
-					let _ = terminal.clear();
+						ratatui_list = List::new(list.clone()).highlight_style(Style {
+							add_modifier: Modifier::REVERSED,
+							..Style::default()
+						});
+					}
 
 					// Hide the cursor again
 					let _ = terminal.hide_cursor();

@@ -362,16 +362,12 @@ Uploaded: {}
 
 							let n_end = n_start + url[n_start..].find('&').unwrap_or(url.len());
 
-							println!("{}, {}", url, &url[n_start..n_end]);
-
 							// Eval `n` function and store result
 							decrypted_n = Some(
 								script
 									.call::<_, String>("f", &&url[n_start..n_end])
 									.expect("`n` function shouldn't fail"),
 							);
-
-							println!("{}", decrypted_n.as_ref().expect("We just set it"));
 
 							url.replace_range(
 								n_start..n_end,

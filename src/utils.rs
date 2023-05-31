@@ -68,8 +68,5 @@ pub fn extract_json<'a, J: Deserialize<'a>>(
 
 	let end = start + string[start..].find(end_str)? + end_str.len() - overshoot;
 
-	Some(
-		from_slice(unsafe { string[start..end].as_bytes_mut() })
-			.expect("Should be able to parse JSON"),
-	)
+	from_slice(unsafe { string[start..end].as_bytes_mut() }).ok()
 }

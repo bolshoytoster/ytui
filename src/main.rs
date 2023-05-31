@@ -2,7 +2,7 @@
 #![feature(option_zip)]
 #![feature(exclusive_range_pattern)]
 
-use std::io::stdout;
+use std::io::{stdin, stdout, Read};
 use std::panic::{set_hook, take_hook};
 
 use crossterm::event::{read, Event, KeyCode, KeyEvent};
@@ -18,7 +18,7 @@ use ratatui::layout::{Alignment, Rect};
 use ratatui::style::{Modifier, Style};
 use ratatui::widgets::{Block, Borders, List, ListItem, ListState, Paragraph};
 use ratatui::Terminal;
-use simd_json::from_slice;
+use simd_json::{from_slice, Error, ErrorType};
 
 mod config;
 use config::*;
@@ -557,16 +557,40 @@ fn main() {
 							if let Some(ref mut script) = js_script {
 								// If JS has already been initialized, we can directly get the video
 								// data and play it
-								from_slice::<VideoResponse>(&mut request_post(
+								match from_slice::<VideoResponse>(&mut request_post(
 									&mut easy,
 									"https://www.youtube.com/youtubei/v1/player",
 									&BrowseRequest {
 										videoId: Some(video_id.clone()),
 										..BrowseRequest::default()
 									},
-								))
-								.expect("Video JSON should be valid")
-								.play(script);
+								)) {
+									Ok(parsed_response) => parsed_response.play(script),
+									// Common error for unavailable videos, don't panic
+									Err(error)
+										if error
+											== Error::generic(ErrorType::Serde(
+												"missing field `streamingData`".to_owned(),
+											)) =>
+									{
+										// Temporarily move into normal terminal
+										let _ = disable_raw_mode();
+										let _ = execute!(stdout(), LeaveAlternateScreen);
+
+										print!(
+											"Couldn't parse response, it may be age restricted \
+											 (press enter to continue) "
+										);
+
+										// Wait for enter
+										let _ = stdin().read(&mut [0]);
+
+										let _ = enable_raw_mode();
+										let _ = execute!(stdout(), EnterAlternateScreen);
+									}
+									// Panic on any other errors
+									Err(error) => panic!("Failed to parse video response: {error}"),
+								}
 							} else {
 								// We need to initialize js context first, download the whole page
 								let mut response = unsafe {
@@ -643,9 +667,13 @@ fn main() {
 								.expect("`n` function should be valid");
 
 								// Extract the JSON data
-								extract_json::<VideoResponse>(&mut response, "{\"re", "};", 1)
-									.expect("Should be able to parse video JSON")
-									.play(&mut script);
+								if let Some(parsed_response) =
+									extract_json::<VideoResponse>(&mut response, "{\"re", "};", 1)
+								{
+									parsed_response.play(&mut script);
+								} else {
+									println!("Couldn't parse response, it may be age restricted");
+								}
 
 								js_script = Some(script);
 							}
